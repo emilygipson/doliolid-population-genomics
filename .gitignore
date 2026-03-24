@@ -1,0 +1,58 @@
+﻿# doliolid-population-genomics
+
+Population genomic analyses of the doliolid *Dolioletta gegenbauri* in the South Atlantic Bight (SAB), using low-coverage whole-genome sequencing (lcWGS) data.
+
+This repository contains scripts and workflows for investigating genetic structure, reproductive dynamics, and effective population size in a pelagic tunicate characterized by alternating sexual and asexual reproduction and episodic bloom formation.
+
+## Overview
+
+- **SNP discovery and genotype likelihood estimation** from lcWGS data using ANGSD
+- **Population structure analysis** via PCA (PCAngsd) and admixture
+- **Imputation and phasing** with BEAGLE
+- **Forward simulations** (SLiM) modeling bloom dynamics and mixed reproductive strategies
+- **Approximate Bayesian Computation (ABC)** to evaluate demographic scenarios and estimate selfing rates
+- **Reference transcriptome assembly** for *D. gegenbauri* using RNA-seq data
+
+## Repository structure
+@"
+*.bam
+*.bam.bai
+*.sam
+*.vcf
+*.vcf.gz
+*.bcf
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.fa
+*.fasta
+*.fasta.fai
+*.bed
+*.beagle.gz
+*.saf.gz
+*.saf.idx
+*.saf.pos.gz
+*.sfs
+*.mafs.gz
+*.glf.gz
+*.geno.gz
+*.trees
+*.slim.out
+*.dict
+*.bt2
+*.amb
+*.ann
+*.bwt
+*.pac
+*.sa
+.Rhistory
+.RData
+.Rproj.user/
+slurm-*.out
+*.nohup
+nohup.out
+.DS_Store
+Thumbs.db
+*.tar.gz
+*.zip
