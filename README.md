@@ -1,14 +1,14 @@
 # doliolid-population-genomics
 
-Population genomic analyses of the doliolid tunicate *Dolioletta gegenbauri* in the South Atlantic Bight, using low-coverage whole-genome sequencing (lcWGS) and complete mitogenome assemblies from 120 individuals.
+Population genomic analyses of the doliolid tunicate *Dolioletta gegenbauri* in the South Atlantic Bight, using low-coverage whole-genome sequencing (lcWGS) 
 
 ## Overview
 
-This repository contains scripts and analysis workflows for investigating genetic structure, bloom dynamics, and mito-nuclear discordance in a bloom-forming pelagic tunicate. The central question is whether doliolid blooms recruit from genetically distinct pools or draw randomly from a panmictic population.
+This repository contains scripts and analysis workflows for investigating genetic structure, bloom dynamics, and mito-nuclear discordance in a bloom-forming pelagic tunicate.
 
 Key analyses include:
 
-- **Mitogenome assembly and characterization** — first complete mitochondrial genome for any doliolid species (15,329 bp), assembled for 120 individuals using MITObim and GetOrganelle
+- **Mitogenome assembly and characterization** 
 - **Population diversity** — haplotype diversity, nucleotide diversity, site frequency spectrum, neutrality tests, per-gene dN/dS
 - **Bloom vs non-bloom comparisons** — Hudson's Snn, AMOVA, Fst, clone detection
 - **Bayesian Skyline Plot** demographic inference (BEAST2) with mutation rate sensitivity analysis
@@ -39,13 +39,7 @@ doliolid-population-genomics/
 | SAMtools / BWA | Read mapping and BAM processing |
 | R | Statistical analysis, visualization, AMOVA, clone detection |
 
-## Data availability
 
-Raw sequence data will be archived at NCBI SRA (accession pending). Large data files (BAMs, VCFs, reference genomes) are not included in this repository.
-
-## Associated publications
-
-Gipson, E.E. et al. *In preparation.*
 
 ## Contact
 
