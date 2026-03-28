@@ -50,7 +50,7 @@ ANGSD estimates site allele frequency (SAF) likelihoods across the reference, th
 - `-minInd 24` (~20% of 118) — can't be too strict at 0.2x or you lose most sites
 - `-fold 1` (no outgroup for polarization)
 
-**Results:** pi = 0.004462, theta_W = 0.004750, Tajima's D ~ -0.30 (not significant). The nuclear genome shows no expansion signal, unlike the mitochondrial Tajima's D of -2.538.
+**Output:** pi = 0.004462, theta_W = 0.004750, Tajima's D ~ -0.30 (not significant).
 
 ---
 
@@ -77,7 +77,7 @@ SNP calling and GL output in beagle format (three columns per individual per SNP
 
 PCAngsd v1.2 on the beagle file, `--iter 500`, `--maf_iter 500`.
 
-MAP test finds one significant PC (PC1, 5.7% variance). PC1 correlates weakly with sequencing depth (r = 0.287), not with bloom status, year, or life stage. Bloom and non-bloom samples overlap completely. PC2–PC10 are each <0.9% variance.
+MAP test finds one significant PC (PC1, 5.7% variance). PC2–PC10 are each <0.9% variance.
 
 Eigenvalues and eigenvectors are plotted in R, colored by bloom/non-bloom, year, and life stage.
 
@@ -90,7 +90,7 @@ Eigenvalues and eigenvectors are plotted in R, colored by bloom/non-bloom, year,
 
 Separate SAF estimation for bloom (n = 80) and non-bloom (n = 38) using the same filters, then 2D folded SFS estimation with `realSFS`, then Fst.
 
-Weighted Fst = 0.002, unweighted = 0.007. Effectively zero. Consistent with the mitochondrial result (Snn = 0.619, p = 0.108).
+Weighted Fst = 0.002, unweighted = 0.007.
 
 ---
 
@@ -110,4 +110,4 @@ Weighted Fst = 0.002, unweighted = 0.007. Effectively zero. Consistent with the 
 
 All scripts are SLURM jobs for the UGA GACRC Sapelo2 cluster. Module loads and SBATCH headers are cluster-specific but the tool invocations are portable.
 
-NgsRelate (`20260321_ngsrelate_118_v2.sh`) was attempted but returned zero overlapping sites for all 6,903 pairwise comparisons — a limitation of extremely low coverage on short CDS contigs. Dropped from the paper; the 120/120 unique mitochondrial haplotypes already address clonality.
+NgsRelate (`20260321_ngsrelate_118_v2.sh`) was attempted but returned zero overlapping sites for all 6,903 pairwise comparisons — a limitation of extremely low coverage on short CDS contigs.
