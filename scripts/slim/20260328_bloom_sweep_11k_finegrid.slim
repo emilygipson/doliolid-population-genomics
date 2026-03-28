@@ -1,0 +1,433 @@
+// =============================================================================
+// DOLIOLID BLOOM FOUNDER THRESHOLD — NEUTRAL, 11016 bp, FINE-GRAINED LOW-K
+// =============================================================================
+// Based on 20260327_bloom_sweep_11k.slim.
+// Dense k grid below k=5000 for precise founder threshold estimation.
+// Within-tow sample sizes only: n=5, 10, 12, 15, 19.
+//
+// Emily Gipson, UGA mfflab
+// Created: 2026-03-28
+// =============================================================================
+initialize() {
+        initializeSLiMModelType("nonWF");
+        if (!exists("K_NURSES"))
+                stop("K_NURSES must be defined via -d flag");
+        if (!exists("MU"))
+                stop("MU must be defined via -d flag");
+        if (!exists("OOZ_SURVIVAL"))
+                stop("OOZ_SURVIVAL must be defined via -d flag");
+        if (!exists("NURSE_MORT"))
+                stop("NURSE_MORT must be defined via -d flag");
+        if (!exists("COMBO_ID"))
+                defineConstant("COMBO_ID", 0);
+        if (!exists("BURNIN"))
+                defineConstant("BURNIN", 10000);
+        if (!exists("COLLECT_INTERVAL"))
+                defineConstant("COLLECT_INTERVAL", 500);
+        if (!exists("N_COLLECTS"))
+                defineConstant("N_COLLECTS", 20);
+        if (!exists("N_REPS"))
+                defineConstant("N_REPS", 500);
+        if (!exists("CLONAL_MEAN"))
+                defineConstant("CLONAL_MEAN", 100);
+        if (!exists("OUTFILE"))
+                defineConstant("OUTFILE", "/scratch/eeg37520/doliolid_slim/sweeps/combo_" + COMBO_ID + "_11k_finegrid_results.tsv");
+        if (!exists("LOGFILE"))
+                defineConstant("LOGFILE", "/scratch/eeg37520/doliolid_slim/sweeps/combo_" + COMBO_ID + "_11k_finegrid_log.csv");
+        if (!exists("BANKFILE"))
+                defineConstant("BANKFILE", "/scratch/eeg37520/doliolid_slim/sweeps/combo_" + COMBO_ID + "_11k_finegrid_bank.txt");
+        defineConstant("GENOME_LENGTH", 11016);
+        defineConstant("PHOROS_PER_NURSE", 3);
+        defineConstant("GONOS_PER_PHORO", 2);
+        defineConstant("EGGS_PER_GONO", 1);
+        defineConstant("END_TICK", BURNIN + N_COLLECTS * COLLECT_INTERVAL);
+        defineConstant("EXPECTED_BANK", asInteger(N_COLLECTS * K_NURSES * 0.95));
+        defineConstant("K_VALUES", c(
+                5, 10, 15, 20, 25, 30, 40, 50, 75, 100,
+                150, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000
+        ));
+        initializeMutationType("m1", 0.5, "f", 0.0);
+        m1.mutationStackPolicy = "l";
+        m1.convertToSubstitution = F;
+        initializeGenomicElementType("g1", m1, 1.0);
+        initializeChromosome(1, GENOME_LENGTH, type="H");
+        initializeGenomicElement(g1);
+        initializeMutationRate(MU);
+        initializeRecombinationRate(0.0);
+        catn("=== 11K BLOOM FOUNDER SWEEP — FINE GRID ===");
+        catn("  COMBO_ID:       " + COMBO_ID);
+        catn("  K_NURSES:       " + K_NURSES);
+        catn("  MU:             " + MU);
+        catn("  OOZ_SURVIVAL:   " + OOZ_SURVIVAL);
+        catn("  NURSE_MORT:     " + NURSE_MORT);
+        catn("  GENOME_LENGTH:  " + GENOME_LENGTH);
+        catn("  BURNIN:         " + BURNIN);
+        catn("  END_TICK:       " + END_TICK);
+        catn("  Expected bank:  ~" + EXPECTED_BANK);
+        catn("  N_REPS:         " + N_REPS);
+        catn("  K_VALUES:       " + paste(c(5,10,15,20,25,30,40,50,75,100,150,200,300,500,750,1000,1500,2000,3000,5000), sep=","));
+        catn("  Sample sizes:   5, 10, 12, 15, 19");
+        catn("==========================================");
+}
+reproduction() {
+        if (individual.tag == 1) {
+                for (i in seqLen(PHOROS_PER_NURSE)) {
+                        offspring = subpop.addCloned(individual);
+                        if (!isNULL(offspring))
+                                offspring.tag = 2;
+                }
+        }
+        if (individual.tag == 2) {
+                for (i in seqLen(GONOS_PER_PHORO)) {
+                        offspring = subpop.addCloned(individual);
+                        if (!isNULL(offspring))
+                                offspring.tag = 3;
+                }
+        }
+        if (individual.tag == 3) {
+                motherHap = individual.haplosomesNonNull;
+                offspring = subpop.addRecombinant(motherHap, NULL, integer(0),
+                        NULL, NULL, NULL);
+                if (!isNULL(offspring))
+                        offspring.tag = 0;
+        }
+}
+1 early() {
+        sim.addSubpop("p1", asInteger(K_NURSES / 10));
+        p1.individuals.tag = 1;
+        defineGlobal("HAP_BANK", c());
+        defineGlobal("COLLECTS_DONE", 0);
+        log = community.createLogFile(LOGFILE, logInterval=100);
+        log.addCycle();
+        log.addCustomColumn("num_nurses", "sum(p1.individuals.tag == 1);");
+        log.addCustomColumn("total_N", "p1.individualCount;");
+        log.addCustomColumn("pi", "calcNucDivSub();");
+        log.addCustomColumn("bank_size", "size(HAP_BANK);");
+}
+early() {
+        if (community.tick == 1) return;
+        inds = p1.individuals;
+        if (size(inds) == 0) {
+                catn("EXTINCT at tick " + community.tick);
+                community.simulationFinished();
+                return;
+        }
+        oozooids = inds[(inds.tag == 0) & (inds.age >= 1)];
+        if (size(oozooids) > 0) {
+                currentNurses = p1.individuals[p1.individuals.tag == 1];
+                nurseSlots = K_NURSES - size(currentNurses);
+                oozooids = sample(oozooids, size(oozooids));
+                matured = 0;
+                for (ooz in oozooids) {
+                        if (runif(1) < OOZ_SURVIVAL & matured < nurseSlots) {
+                                ooz.tag = 1;
+                                matured = matured + 1;
+                        } else {
+                                ooz.fitnessScaling = 0.0;
+                        }
+                }
+        }
+        currentNurses = p1.individuals[p1.individuals.tag == 1];
+        if (size(currentNurses) > 0) {
+                nToKill = asInteger(max(1.0, ceil(size(currentNurses) * NURSE_MORT)));
+                if (nToKill > size(currentNurses))
+                        nToKill = size(currentNurses);
+                deadNurses = sample(currentNurses, nToKill);
+                deadNurses.fitnessScaling = 0.0;
+        }
+        oldPhoros = p1.individuals[(p1.individuals.tag == 2) & (p1.individuals.age >= 1)];
+        if (size(oldPhoros) > 0) oldPhoros.fitnessScaling = 0.0;
+        oldGonos = p1.individuals[(p1.individuals.tag == 3) & (p1.individuals.age >= 1)];
+        if (size(oldGonos) > 0) oldGonos.fitnessScaling = 0.0;
+}
+function (float)calcNucDivSub(void) {
+        if (p1.individualCount < 2) return 0.0;
+        haps = p1.individuals.haplosomesNonNull;
+        if (size(haps) < 2) return 0.0;
+        if (size(haps) > 200) {
+                sampledInds = sample(p1.individuals, 200);
+                haps = sampledInds.haplosomesNonNull;
+        }
+        return calcPi(haps);
+}
+function (string)getHapString(object<Haplosome>$ hap) {
+        muts = hap.mutations;
+        if (size(muts) == 0)
+                return "anc";
+        return paste(sort(muts.position), sep=",");
+}
+function (integer)pairwiseDiffs(string$ hap1, string$ hap2) {
+        if (hap1 == hap2)
+                return 0;
+        if (hap1 == "anc")
+                return size(strsplit(hap2, ","));
+        if (hap2 == "anc")
+                return size(strsplit(hap1, ","));
+        pos1 = asInteger(strsplit(hap1, ","));
+        pos2 = asInteger(strsplit(hap2, ","));
+        shared = setIntersection(pos1, pos2);
+        diffs = size(pos1) + size(pos2) - 2 * size(shared);
+        return diffs;
+}
+function (float)piFromStrings(string hapStrings) {
+        n = size(hapStrings);
+        if (n < 2) return 0.0;
+        totalDiffs = 0;
+        nPairs = 0;
+        for (i in 0:(n-2)) {
+                for (j in (i+1):(n-1)) {
+                        totalDiffs = totalDiffs + pairwiseDiffs(hapStrings[i], hapStrings[j]);
+                        nPairs = nPairs + 1;
+                }
+        }
+        return asFloat(totalDiffs) / (asFloat(nPairs) * GENOME_LENGTH);
+}
+
+function (float)tajDFromStrings(string hapStrings) {
+        n = size(hapStrings);
+        if (n < 4) return 0.0;
+
+        allPos = c();
+        for (hs in hapStrings) {
+                if (hs != "anc")
+                        allPos = c(allPos, asInteger(strsplit(hs, ",")));
+        }
+        if (size(allPos) == 0) return 0.0;
+        uniquePos = unique(allPos);
+
+        S = 0;
+        for (pos in uniquePos) {
+                freq = 0;
+                for (hs in hapStrings) {
+                        if (hs == "anc") {
+                        } else {
+                                positions = asInteger(strsplit(hs, ","));
+                                if (any(positions == pos))
+                                        freq = freq + 1;
+                        }
+                }
+                if (freq > 0 & freq < n)
+                        S = S + 1;
+        }
+
+        if (S < 2) return 0.0;
+
+        pi = piFromStrings(hapStrings);
+
+        nn = asFloat(n);
+        a1 = 0.0;
+        a2 = 0.0;
+        for (i in 1:(n-1)) {
+                a1 = a1 + 1.0 / i;
+                a2 = a2 + 1.0 / (i * i);
+        }
+
+        b1 = (nn + 1.0) / (3.0 * (nn - 1.0));
+        b2 = 2.0 * (nn * nn + nn + 3.0) / (9.0 * nn * (nn - 1.0));
+        c1 = b1 - 1.0 / a1;
+        c2 = b2 - (nn + 2.0) / (a1 * nn) + a2 / (a1 * a1);
+        e1 = c1 / a1;
+        e2 = c2 / (a1 * a1 + a2);
+
+        theta_pi = pi * GENOME_LENGTH;
+        theta_W = asFloat(S) / a1;
+
+        denom = sqrt(e1 * S + e2 * S * (S - 1.0));
+        if (denom == 0.0) return 0.0;
+
+        return (theta_pi - theta_W) / denom;
+}
+
+function (integer)minPairwiseDist(string hapStrings) {
+        n = size(hapStrings);
+        if (n < 2) return 0;
+        minDist = asInteger(GENOME_LENGTH);
+        for (i in 0:(n-2)) {
+                for (j in (i+1):(n-1)) {
+                        d = pairwiseDiffs(hapStrings[i], hapStrings[j]);
+                        if (d < minDist)
+                                minDist = d;
+                }
+        }
+        return minDist;
+}
+
+function (float)fuFsFromStrings(string hapStrings) {
+        n = size(hapStrings);
+        if (n < 4) return 0.0;
+
+        k = size(unique(hapStrings));
+        if (k <= 1) return 0.0;
+
+        theta_pi = piFromStrings(hapStrings) * GENOME_LENGTH;
+        if (theta_pi <= 0.0) return 0.0;
+
+        logDenom = 0.0;
+        for (i in 0:(n-1))
+                logDenom = logDenom + log(theta_pi + i);
+
+        maxK = min(k, n);
+        logS = rep(-INF, maxK);
+        logS[0] = 0.0;
+
+        for (j in 2:n) {
+                newLogS = rep(-INF, maxK);
+                for (i in 1:min(j, maxK)) {
+                        idx = i - 1;
+
+                        logTerm1 = -INF;
+                        if (idx < size(logS))
+                                if (logS[idx] > -INF)
+                                        logTerm1 = log(asFloat(j - 1)) + logS[idx];
+
+                        logTerm2 = -INF;
+                        if (idx > 0)
+                                if (logS[idx - 1] > -INF)
+                                        logTerm2 = logS[idx - 1];
+
+                        if (logTerm1 == -INF & logTerm2 == -INF) {
+                                newLogS[idx] = -INF;
+                        } else if (logTerm1 >= logTerm2) {
+                                if (logTerm2 == -INF)
+                                        newLogS[idx] = logTerm1;
+                                else
+                                        newLogS[idx] = logTerm1 + log(1.0 + exp(logTerm2 - logTerm1));
+                        } else {
+                                if (logTerm1 == -INF)
+                                        newLogS[idx] = logTerm2;
+                                else
+                                        newLogS[idx] = logTerm2 + log(1.0 + exp(logTerm1 - logTerm2));
+                        }
+                }
+                logS = newLogS;
+        }
+
+        cumProb = 0.0;
+        for (i in 1:(k-1)) {
+                idx = i - 1;
+                if (idx >= size(logS)) next;
+                if (logS[idx] == -INF) next;
+                logP = logS[idx] + asFloat(i) * log(theta_pi) - logDenom;
+                if (logP > 0.0) logP = 0.0;
+                cumProb = cumProb + exp(logP);
+        }
+
+        Sprime = 1.0 - cumProb;
+        if (Sprime <= 0.0) Sprime = 1e-300;
+        if (Sprime >= 1.0) Sprime = 1.0 - 1e-10;
+
+        return log(Sprime / (1.0 - Sprime));
+}
+
+function (void)writeBloomStatsFromBank(integer$ k, integer$ rep, integer$ n,
+        string bankHaps, float$ bgPi, integer$ bankSize, string$ outfile)
+{
+        founderIdx = sample(seqLen(bankSize), k);
+        founderStrings = bankHaps[founderIdx];
+
+        bloomIdx = c();
+        for (i in seqLen(k)) {
+                nClones = rpois(1, CLONAL_MEAN);
+                if (nClones < 1) nClones = 1;
+                bloomIdx = c(bloomIdx, rep(i, nClones));
+        }
+
+        if (size(bloomIdx) < n)
+                sampIdx = sample(bloomIdx, n, replace=T);
+        else
+                sampIdx = sample(bloomIdx, n);
+
+        sampleStrings = founderStrings[sampIdx];
+
+        nUnique = size(unique(sampleStrings));
+        pi = piFromStrings(sampleStrings);
+        tajD = tajDFromStrings(sampleStrings);
+        minDist = minPairwiseDist(sampleStrings);
+        fuFs = fuFsFromStrings(sampleStrings);
+
+        line = COMBO_ID + "\t" + k + "\t" + rep + "\t" + n + "\t" +
+                nUnique + "\t" +
+                format("%.8f", pi) + "\t" +
+                format("%.4f", tajD) + "\t" +
+                format("%.4f", fuFs) + "\t" +
+                minDist + "\t" +
+                format("%.8f", bgPi) + "\t" +
+                bankSize;
+        writeFile(outfile, line, append=T);
+}
+
+1: late() {
+        if (community.tick % 500 != 0) return;
+        if (community.tick > END_TICK) return;
+
+        nurses = p1.individuals[p1.individuals.tag == 1];
+        pi = calcNucDivSub();
+        catn("Tick " + community.tick + ": " +
+                size(nurses) + " nurses, pi=" +
+                format("%.6f", pi) + ", bank=" + size(HAP_BANK) +
+                " [combo " + COMBO_ID + "]");
+}
+
+1: late() {
+        if (community.tick <= BURNIN) return;
+        if (community.tick > END_TICK) return;
+        if ((community.tick - BURNIN) % COLLECT_INTERVAL != 0) return;
+
+        nurses = p1.individuals[p1.individuals.tag == 1];
+        newHaps = c();
+        for (nurse in nurses)
+                newHaps = c(newHaps, getHapString(nurse.haplosomesNonNull));
+
+        defineGlobal("HAP_BANK", c(HAP_BANK, newHaps));
+        defineGlobal("COLLECTS_DONE", COLLECTS_DONE + 1);
+
+        catn("  Collected " + size(newHaps) + " haplotypes at tick " +
+                community.tick + " (harvest " + COLLECTS_DONE + "/" +
+                N_COLLECTS + ", bank=" + size(HAP_BANK) + ")");
+}
+
+END_TICK late() {
+
+        bankSize = size(HAP_BANK);
+        bgPi = piFromStrings(sample(HAP_BANK, min(200, bankSize)));
+
+        catn("\n================================================");
+        catn("  COLLECTION COMPLETE — 11K FINEGRID COMBO " + COMBO_ID);
+        catn("  Haplotype bank size: " + bankSize);
+        catn("  Unique haplotypes:   " + size(unique(HAP_BANK)));
+        catn("  Background pi (est): " + format("%.6f", bgPi));
+        catn("  GENOME_LENGTH:       " + GENOME_LENGTH);
+        catn("================================================\n");
+
+        writeFile(OUTFILE, "combo_id\tk\trep\tn\tn_unique\tpi\ttajD\tfuFs\tmin_pairwise\tbg_pi\tn_haps_in_bank");
+
+        sampleSizes = c(5, 10, 12, 15, 19);
+
+        for (kVal in K_VALUES) {
+                if (kVal > bankSize) {
+                        catn("  Skipping k=" + kVal +
+                                " (exceeds bank size " + bankSize + ")");
+                        next;
+                }
+
+                catn("  k=" + kVal + " (" + N_REPS + " reps)...");
+
+                for (rep in seqLen(N_REPS)) {
+                        for (n in sampleSizes) {
+                                writeBloomStatsFromBank(kVal, rep, n,
+                                        HAP_BANK, bgPi, bankSize, OUTFILE);
+                        }
+                }
+        }
+
+        catn("\n================================================");
+        catn("  BLOOM SAMPLING COMPLETE — 11K FINEGRID COMBO " + COMBO_ID);
+        catn("  Results: " + OUTFILE);
+        catn("================================================");
+
+        catn("  Saving haplotype bank to " + BANKFILE + "...");
+        writeFile(BANKFILE, HAP_BANK);
+        catn("  Bank saved (" + size(HAP_BANK) + " haplotypes).");
+
+        community.simulationFinished();
+}
