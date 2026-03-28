@@ -1,0 +1,236 @@
+// =============================================================================
+// MU CALIBRATION — NEUTRAL MODEL, 11016 bp, ADAPTIVE CONVERGENCE
+// =============================================================================
+// Identical to 20260326_neutral_calibration_adaptive.slim except
+// GENOME_LENGTH = 11016 (filtered alignment length).
+//
+// Emily Gipson, UGA mfflab
+// Created: 2026-03-27
+// =============================================================================
+
+initialize() {
+	initializeSLiMModelType("nonWF");
+
+	if (!exists("K_NURSES"))
+		defineConstant("K_NURSES", 5000);
+	if (!exists("MU"))
+		defineConstant("MU", 2.47e-7);
+	if (!exists("OOZ_SURVIVAL"))
+		defineConstant("OOZ_SURVIVAL", 0.50);
+	if (!exists("NURSE_MORTALITY"))
+		defineConstant("NURSE_MORTALITY", 0.05);
+	if (!exists("COMBO_ID"))
+		defineConstant("COMBO_ID", 0);
+	if (!exists("LOGDIR"))
+		defineConstant("LOGDIR", "/scratch/eeg37520/doliolid_slim/calibration_logs");
+
+	if (!exists("TARGET_PI"))
+		defineConstant("TARGET_PI", 0.0066);
+	if (!exists("TOLERANCE"))
+		defineConstant("TOLERANCE", 0.15);
+	if (!exists("WINDOW"))
+		defineConstant("WINDOW", 10);
+	if (!exists("CHECK_INTERVAL"))
+		defineConstant("CHECK_INTERVAL", 500);
+	if (!exists("CHECK_START"))
+		defineConstant("CHECK_START", 5000);
+	if (!exists("MAX_TICK"))
+		defineConstant("MAX_TICK", 200000);
+
+	defineConstant("GENOME_LENGTH", 11016);
+	defineConstant("PHOROS_PER_NURSE", 3);
+	defineConstant("GONOS_PER_PHORO", 2);
+	defineConstant("EGGS_PER_GONO", 1);
+
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	m1.mutationStackPolicy = "l";
+	m1.convertToSubstitution = F;
+
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeChromosome(1, GENOME_LENGTH, type="H");
+	initializeGenomicElement(g1);
+	initializeMutationRate(MU);
+	initializeRecombinationRate(0.0);
+
+	defineConstant("LOGFILE", LOGDIR + "/calibration_11k_combo" + COMBO_ID +
+		"_K" + K_NURSES + "_mu" + MU +
+		"_ooz" + asInteger(OOZ_SURVIVAL * 100) +
+		"_mort" + asInteger(NURSE_MORTALITY * 100) + ".csv");
+
+	catn("=== NEUTRAL 11K ADAPTIVE CALIBRATION ===");
+	catn("  COMBO_ID:      " + COMBO_ID);
+	catn("  K_NURSES:      " + K_NURSES);
+	catn("  OOZ_SURVIVAL:  " + OOZ_SURVIVAL);
+	catn("  NURSE_MORT:    " + NURSE_MORTALITY);
+	catn("  MU:            " + MU);
+	catn("  GENOME_LENGTH: " + GENOME_LENGTH);
+	catn("  TARGET_PI:     " + TARGET_PI);
+	catn("  TOLERANCE:     " + TOLERANCE);
+	catn("  WINDOW:        " + WINDOW);
+	catn("  MAX_TICK:      " + MAX_TICK);
+	catn("  LOGFILE:       " + LOGFILE);
+	catn("=========================================");
+}
+
+reproduction() {
+	if (individual.tag == 1) {
+		for (i in seqLen(PHOROS_PER_NURSE)) {
+			offspring = subpop.addCloned(individual);
+			if (!isNULL(offspring))
+				offspring.tag = 2;
+		}
+	}
+	if (individual.tag == 2) {
+		for (i in seqLen(GONOS_PER_PHORO)) {
+			offspring = subpop.addCloned(individual);
+			if (!isNULL(offspring))
+				offspring.tag = 3;
+		}
+	}
+	if (individual.tag == 3) {
+		motherHap = individual.haplosomesNonNull;
+		offspring = subpop.addRecombinant(motherHap, NULL, integer(0),
+			NULL, NULL, NULL);
+		if (!isNULL(offspring))
+			offspring.tag = 0;
+	}
+}
+
+1 early() {
+	sim.addSubpop("p1", asInteger(K_NURSES / 10));
+	p1.individuals.tag = 1;
+
+	defineGlobal("PI_WINDOW", rep(0.0, WINDOW));
+	defineGlobal("WINDOW_FILLED", 0);
+
+	log = community.createLogFile(LOGFILE, logInterval=100);
+	log.addCycle();
+	log.addCustomColumn("num_nurses", "sum(p1.individuals.tag == 1);");
+	log.addCustomColumn("total_N", "p1.individualCount;");
+	log.addCustomColumn("pi", "calcNucDivSub();");
+}
+
+early() {
+	if (community.tick == 1) return;
+
+	inds = p1.individuals;
+	if (size(inds) == 0) {
+		catn("EXTINCT at tick " + community.tick);
+		community.simulationFinished();
+		return;
+	}
+
+	oozooids = inds[(inds.tag == 0) & (inds.age >= 1)];
+	if (size(oozooids) > 0) {
+		currentNurses = p1.individuals[p1.individuals.tag == 1];
+		nurseSlots = K_NURSES - size(currentNurses);
+		oozooids = sample(oozooids, size(oozooids));
+		matured = 0;
+		for (ooz in oozooids) {
+			if (runif(1) < OOZ_SURVIVAL & matured < nurseSlots) {
+				ooz.tag = 1;
+				matured = matured + 1;
+			} else {
+				ooz.fitnessScaling = 0.0;
+			}
+		}
+	}
+
+	currentNurses = p1.individuals[p1.individuals.tag == 1];
+	if (size(currentNurses) > 0) {
+		nToKill = asInteger(max(1.0, ceil(size(currentNurses) * NURSE_MORTALITY)));
+		if (nToKill > size(currentNurses))
+			nToKill = size(currentNurses);
+		deadNurses = sample(currentNurses, nToKill);
+		deadNurses.fitnessScaling = 0.0;
+	}
+
+	oldPhoros = p1.individuals[(p1.individuals.tag == 2) & (p1.individuals.age >= 1)];
+	if (size(oldPhoros) > 0) oldPhoros.fitnessScaling = 0.0;
+
+	oldGonos = p1.individuals[(p1.individuals.tag == 3) & (p1.individuals.age >= 1)];
+	if (size(oldGonos) > 0) oldGonos.fitnessScaling = 0.0;
+}
+
+function (float)calcNucDivSub(void) {
+	if (p1.individualCount < 2) return 0.0;
+	haps = p1.individuals.haplosomesNonNull;
+	if (size(haps) < 2) return 0.0;
+	if (size(haps) > 200) {
+		sampledInds = sample(p1.individuals, 200);
+		haps = sampledInds.haplosomesNonNull;
+	}
+	return calcPi(haps);
+}
+
+200000 late() {
+	catn("ERROR: Reached terminal event without convergence or timeout.");
+	community.simulationFinished();
+}
+
+1: late() {
+	if (community.tick < CHECK_START) return;
+	if (community.tick % CHECK_INTERVAL != 0) return;
+
+	pi = calcNucDivSub();
+	nurses = p1.individuals[p1.individuals.tag == 1];
+
+	for (i in 0:(WINDOW - 2))
+		PI_WINDOW[i] = PI_WINDOW[i + 1];
+	PI_WINDOW[WINDOW - 1] = pi;
+
+	defineGlobal("WINDOW_FILLED", min(WINDOW_FILLED + 1, WINDOW));
+
+	lowBound = TARGET_PI * (1.0 - TOLERANCE);
+	highBound = TARGET_PI * (1.0 + TOLERANCE);
+
+	inRange = 0;
+	if (WINDOW_FILLED == WINDOW) {
+		for (i in 0:(WINDOW - 1)) {
+			if (PI_WINDOW[i] >= lowBound & PI_WINDOW[i] <= highBound)
+				inRange = inRange + 1;
+		}
+	}
+
+	windowMean = 0.0;
+	if (WINDOW_FILLED > 0)
+		windowMean = sum(PI_WINDOW[(WINDOW - WINDOW_FILLED):(WINDOW - 1)]) / WINDOW_FILLED;
+
+	catn("Tick " + community.tick + ": " +
+		size(nurses) + " nurses, pi=" +
+		format("%.6f", pi) +
+		", window_mean=" + format("%.6f", windowMean) +
+		", in_range=" + inRange + "/" + WINDOW_FILLED +
+		" [combo " + COMBO_ID + "]");
+
+	if (WINDOW_FILLED == WINDOW & inRange == WINDOW) {
+		catn("\n================================================");
+		catn("  CONVERGED — 11K NEUTRAL COMBO " + COMBO_ID);
+		catn("  Tick:          " + community.tick);
+		catn("  K_NURSES:      " + K_NURSES);
+		catn("  OOZ_SURVIVAL:  " + OOZ_SURVIVAL);
+		catn("  NURSE_MORT:    " + NURSE_MORTALITY);
+		catn("  MU:            " + MU);
+		catn("  GENOME_LENGTH: " + GENOME_LENGTH);
+		catn("  Final pi:      " + format("%.6f", pi));
+		catn("  Window mean:   " + format("%.6f", windowMean));
+		catn("  Target pi:     " + TARGET_PI);
+		catn("  Ratio:         " + format("%.3f", windowMean / TARGET_PI));
+		catn("================================================");
+		community.simulationFinished();
+		return;
+	}
+
+	if (community.tick >= MAX_TICK) {
+		catn("\n================================================");
+		catn("  MAX_TICK REACHED — 11K NEUTRAL COMBO " + COMBO_ID);
+		catn("  MU:            " + MU);
+		catn("  Final pi:      " + format("%.6f", pi));
+		catn("  Window mean:   " + format("%.6f", windowMean));
+		catn("  Ratio:         " + format("%.3f", windowMean / TARGET_PI));
+		catn("  STATUS:        DID NOT CONVERGE");
+		catn("================================================");
+		community.simulationFinished();
+		return;
+	}
+}
