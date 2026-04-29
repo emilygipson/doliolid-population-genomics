@@ -12,13 +12,13 @@ Population genomic analyses of *Dolioletta gegenbauri* in the South Atlantic Big
 
 ## Repository structure
 
-\`\`\`
+```
 doliolid-population-genomics/
 ├── scripts/
 │   ├── bash/       # SLURM job scripts for HPC
 │   └── R/          # Statistical analysis and visualization
 └── markdowns/      # Notes
-\`\`\`
+```
 
 ## Software
 
