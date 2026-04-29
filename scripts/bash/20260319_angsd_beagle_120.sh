@@ -10,10 +10,8 @@
 #SBATCH --error=/scratch/eeg37520/nuc_120_mitomatch_redo/logs/%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
-# =============================================================================
 # 20260319_angsd_beagle_120.sh
 #
-# PURPOSE:
 #   Generate beagle-format genotype likelihoods for PCAngsd PCA and
 #   downstream analyses (kinship, admixture). Uses SNP_pval filter to
 #   retain only polymorphic sites. minInd=50 for stricter missingness
@@ -22,7 +20,6 @@
 # DEPENDS ON: 20260319_build_bamlist_depth.sh (job 43719648)
 #
 # NOTE: Same downsampling caveat as the SAF script.
-# =============================================================================
 set -euo pipefail
 
 module purge

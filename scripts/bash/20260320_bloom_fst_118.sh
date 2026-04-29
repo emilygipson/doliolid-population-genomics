@@ -10,16 +10,13 @@
 #SBATCH --error=/scratch/eeg37520/nuc_120_mitomatch_redo/logs/%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
-# =============================================================================
 # 20260320_bloom_fst_118.sh
 #
-# PURPOSE: Bloom vs non-bloom Fst for 118-sample nuclear dataset
 # FIX: setMaxDepth=300 (was 50), fixed BAM list construction to handle
 #      .opg.markdup.ds.bam suffix from downsampled EG samples
 #
 # BLOOM (n=80): DD7, DD11, DD17, DD21, DM18, EG2,6,7,8,9,10,11,12,13,14,15,16
 # NON-BLOOM (n=38): DD4, DD6, DD8, DD9, DD10, DD15, DD19, DL5, EG1,3,5
-# =============================================================================
 set -euo pipefail
 
 module purge

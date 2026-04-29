@@ -24,7 +24,6 @@ echo "Conspecific assembly alignment & diversity"
 echo "Start: $(date)"
 echo "=========================================="
 
-# Step 1: Collect all 105 noIUPAC fastas into one multi-fasta
 echo "[$(date)] Collecting assemblies..."
 > $OUTDIR/all_105_conspecific.fasta
 for f in $(find $ASSEMBLYDIR -name "*noIUPAC.fasta" | sort); do
@@ -35,12 +34,10 @@ for f in $(find $ASSEMBLYDIR -name "*noIUPAC.fasta" | sort); do
 done
 echo "[$(date)] Collected $(grep -c '^>' $OUTDIR/all_105_conspecific.fasta) sequences"
 
-# Step 2: Align with MAFFT
 echo "[$(date)] Running MAFFT alignment..."
 mafft --auto --thread 8 $OUTDIR/all_105_conspecific.fasta > $OUTDIR/all_105_conspecific_aligned.fasta
 echo "[$(date)] Alignment complete"
 
-# Step 3: Diversity stats in R
 echo "[$(date)] Computing diversity statistics..."
 cat > $OUTDIR/diversity_comparison.R << 'RSCRIPT'
 library(ape)

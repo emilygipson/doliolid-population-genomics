@@ -10,12 +10,9 @@
 #SBATCH --error=/scratch/eeg37520/nuc_120_mitomatch_redo/logs/%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
-# =============================================================================
 # 20260320_angsd_saf_sfs_118.sh
 #
-# PURPOSE: Global SAF + folded SFS + diversity stats for 118 samples
 # FIX: setMaxDepth=300 (was 50, matching old 100-sample runs)
-# =============================================================================
 set -euo pipefail
 
 module purge

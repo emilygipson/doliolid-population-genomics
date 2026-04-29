@@ -10,14 +10,11 @@
 #SBATCH --error=/scratch/eeg37520/nuc_120_mitomatch_redo/logs/%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
-# =============================================================================
 # 20260320_angsd_beagle_118.sh
 #
-# PURPOSE: Beagle genotype likelihoods for PCAngsd PCA + kinship
 # FIX: setMaxDepth=300 (was 50), minInd=24 (was 50)
 # Matches parameters from old working run (minInd=50 for 100 samples
 # was ~50%; 24 for 118 = ~20%. Old run also used setMaxDepth=300.)
-# =============================================================================
 set -euo pipefail
 
 module purge

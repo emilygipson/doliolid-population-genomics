@@ -11,9 +11,7 @@
 #SBATCH --output=/scratch/eeg37520/doliolid_slim/logs/20260327_11k_cal_%a.out
 #SBATCH --error=/scratch/eeg37520/doliolid_slim/logs/20260327_11k_cal_%a.err
 
-# =============================================================================
 # NEUTRAL 11K ADAPTIVE CALIBRATION — 18 parameter combinations
-# =============================================================================
 
 cd /scratch/eeg37520/doliolid_slim
 

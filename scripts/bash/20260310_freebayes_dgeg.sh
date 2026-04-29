@@ -12,7 +12,6 @@
 
 # Joint variant calling on 105 samples remapped to D. gegenbauri reference
 # Run AFTER remap array job completes
-# Date: 2026-03-10
 # Fix: corrected freebayes module, absolute log paths, added email
 
 module load freebayes/1.3.7-gfbf-2023a-R-4.3.2

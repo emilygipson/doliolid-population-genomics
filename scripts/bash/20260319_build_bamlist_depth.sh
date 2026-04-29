@@ -11,17 +11,14 @@
 #SBATCH --error=/scratch/eeg37520/nuc_120_mitomatch_redo/logs/%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
-# =============================================================================
 # 20260319_build_bamlist_depth.sh
 #
-# PURPOSE:
 #   1. Build the 120-sample BAM list (99 existing + 21 new)
 #   2. Verify all BAMs exist and are indexed
 #   3. Run ANGSD depth scan on all 120 samples
 #   4. Compute per-sample read counts from flagstat for downsampling decision
 #
 # DEPENDS ON: 20260319_map_markdup_21.sh (job 43719593)
-# =============================================================================
 set -euo pipefail
 
 module purge

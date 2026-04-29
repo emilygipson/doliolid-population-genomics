@@ -1,8 +1,6 @@
-# =============================================================================
 # Per-gene dN/dS analysis — D. gegenbauri mitogenomes
 # 59 complete GetOrganelle assemblies, 13 protein-coding genes
 # Emily Garner, UGA, 2026-03-06
-# =============================================================================
 
 library(seqinr)
 library(ape)
@@ -24,40 +22,40 @@ results <- data.frame(
 
 for (gene in genes) {
   cat("Processing", gene, "...\n")
-  
+
   fname <- paste0(gene, "_aligned.fasta")
   if (!file.exists(fname)) {
     cat("  WARNING: file not found, skipping\n")
     next
   }
-  
+
   aln <- read.alignment(fname, format = "fasta")
   dna <- read.dna(fname, format = "fasta")
-  
+
   n_seqs <- aln$nb
   len_bp <- nchar(aln$seq[[1]])
   len_codons <- len_bp %/% 3
   pi_val <- nuc.div(dna)
-  
+
   kaks_result <- kaks(aln)
-  
+
   dn_vals <- as.numeric(kaks_result$ka)
   ds_vals <- as.numeric(kaks_result$ks)
-  
+
   dn_vals <- dn_vals[!is.na(dn_vals) & is.finite(dn_vals)]
   ds_vals <- ds_vals[!is.na(ds_vals) & is.finite(ds_vals)]
-  
+
   mean_dn <- mean(dn_vals)
   mean_ds <- mean(ds_vals)
   omega <- ifelse(mean_ds > 0, mean_dn / mean_ds, NA)
-  
+
   results <- rbind(results, data.frame(
     gene = gene, n_seqs = n_seqs, length_bp = len_bp,
     length_codons = len_codons, pi = pi_val,
     dN = mean_dn, dS = mean_ds, omega = omega,
     stringsAsFactors = FALSE
   ))
-  
+
   cat("  ", n_seqs, "seqs,", len_codons, "codons, dN =", round(mean_dn, 5),
       ", dS =", round(mean_ds, 5), ", omega =", round(omega, 4), "\n")
 }
@@ -65,9 +63,7 @@ for (gene in genes) {
 cat("\n===== Per-gene diversity and selection =====\n\n")
 print(results, digits = 4)
 
-# =============================================================================
 # Figure
-# =============================================================================
 
 results$gene <- factor(results$gene, levels = results$gene[order(results$omega)])
 
@@ -92,9 +88,7 @@ barplot(results$pi[order(results$omega)],
         border = NA)
 dev.off()
 
-# =============================================================================
 # Summary statistics for text
-# =============================================================================
 
 cat("\nSummary for paper:\n")
 cat("  omega range:", round(min(results$omega, na.rm=TRUE), 3), "-",

@@ -11,9 +11,7 @@
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
 
-# =============================================================================
 # PURIFYING SELECTION BLOOM SWEEP — 11 DFE parameter combinations
-# =============================================================================
 # All at combo 4 life cycle: K=5000, OOZ_SURVIVAL=0.50, NURSE_MORT=0.05
 # MU values must be calibrated before submission.
 #
@@ -21,8 +19,6 @@
 #   PURSEL_ID  DFE_TYPE  SEL_COEFF  GAMMA_SHAPE  MU
 #
 # Emily Gipson, UGA mfflab
-# Created: 2026-03-25
-# =============================================================================
 
 cd /scratch/eeg37520/doliolid_slim
 

@@ -10,13 +10,10 @@
 #SBATCH --error=/scratch/eeg37520/nuc_120_mitomatch_redo/logs/%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=eeg37520@uga.edu
-# =============================================================================
 # 20260321_pcangsd_118_v2.sh
 #
-# PURPOSE:
 #   Rerun PCAngsd with increased iteration limit (500) to ensure convergence.
 #   v1 hit the 100-iteration default and did not converge (RMSE=0.000288).
-# =============================================================================
 set -euo pipefail
 
 module purge

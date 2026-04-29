@@ -1,13 +1,9 @@
-// =============================================================================
 // DOLIOLID BLOOM FOUNDER THRESHOLD — NEUTRAL, 11016 bp, FINE-GRAINED LOW-K
-// =============================================================================
 // Based on 20260327_bloom_sweep_11k.slim.
 // Dense k grid below k=5000 for precise founder threshold estimation.
 // Within-tow sample sizes only: n=5, 10, 12, 15, 19.
 //
 // Emily Gipson, UGA mfflab
-// Created: 2026-03-28
-// =============================================================================
 initialize() {
         initializeSLiMModelType("nonWF");
         if (!exists("K_NURSES"))

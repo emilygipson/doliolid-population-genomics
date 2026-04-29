@@ -11,14 +11,10 @@
 #SBATCH --output=/scratch/eeg37520/doliolid_slim/logs/20260327_11k_sweep_%a.out
 #SBATCH --error=/scratch/eeg37520/doliolid_slim/logs/20260327_11k_sweep_%a.err
 
-# =============================================================================
 # 11K NEUTRAL BLOOM SWEEP — 18 parameter combinations, 7 sample sizes
-# =============================================================================
 # DO NOT SUBMIT until 11k calibrations complete and sweep param file is built.
 #
 # Emily Gipson, UGA mfflab
-# Created: 2026-03-27
-# =============================================================================
 
 cd /scratch/eeg37520/doliolid_slim
 
