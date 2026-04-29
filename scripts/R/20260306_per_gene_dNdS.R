@@ -1,6 +1,7 @@
 # Per-gene dN/dS analysis — D. gegenbauri mitogenomes
 # 59 complete GetOrganelle assemblies, 13 protein-coding genes
-# Emily Garner, UGA, 2026-03-06
+
+# Emily Gipson, UGA, 2026-03-06
 
 library(seqinr)
 library(ape)
