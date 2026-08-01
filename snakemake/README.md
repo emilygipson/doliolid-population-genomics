@@ -1,4 +1,4 @@
-# Nuclear lcWGS workflow
+# lcWGS workflow
 
 ANGSD steps for the *D. gegenbauri* nuclear low-coverage data, n=118. SAF, folded
 SFS, thetas, pairwise Fst, PCAngsd. Mapping and dedup happen upstream in
