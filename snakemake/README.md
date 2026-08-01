@@ -39,10 +39,3 @@ testing. Blank it for the full 88,916.
 Reference is the one-CDS-per-gene transcriptome at
 /scratch/eeg37520/transdecoder_homology/cdhit/one_per_gene/. Needs a .fai.
 
-## Caveats
-
-The bloom/non-bloom bamlists here are the May 2026 station-level split. That
-partition is being redone. Fst computed under different partitions isn't
-comparable.
-
-SAF on 118 samples genome-wide is the slow step. Everything after it is fast.
