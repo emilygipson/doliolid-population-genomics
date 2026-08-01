@@ -1,7 +1,7 @@
 # lcWGS workflow
 
-ANGSD steps for the *D. gegenbauri* nuclear low-coverage data, n=118. SAF, folded
-SFS, thetas, pairwise Fst, PCAngsd. Mapping and dedup happen upstream in
+ANGSD steps for the *D. gegenbauri* nuclear low-coverage WGS data, n=118. SAF, folded
+SFS, thetas, pairwise Fst, PCAngsd. Mapping and dedup happened upstream in
 scripts/bash/ and aren't part of this.
 
 Full pipeline writeup: markdowns/nuclear_lcwgs_pipeline.md
@@ -26,10 +26,9 @@ To add a partition: drop in a bamlist, add one line to config.yaml.
     snakemake --profile profiles/slurm
 
 Deactivate conda first. With base active it still works, but only because of
-path ordering, which isn't worth relying on.
+path ordering
 
-The regions entry in config.yaml limits ANGSD to a contig subset. Useful for
-testing. Blank it for the full 88,916.
+The regions entry in config.yaml limits ANGSD to a contig subset for testing. Blank it for the full 88,916.
 
 ## Parameters
 
