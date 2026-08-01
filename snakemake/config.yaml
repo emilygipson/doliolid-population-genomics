@@ -1,0 +1,65 @@
+bamlist_dir: /scratch/eeg37520/nuc_120_mitomatch_redo/bamlists
+outdir: /scratch/eeg37520/nuc_120_mitomatch_redo/snakemake_20260801
+reference: /scratch/eeg37520/transdecoder_homology/cdhit/one_per_gene/final_ref.cds.onePerGene.fasta
+
+regions: /scratch/eeg37520/nuc_120_mitomatch_redo/snakemake_20260801/test_contigs.txt
+
+groups:
+  all: nuc118_all_stationlevel_20260504.bamlist.txt
+  bloom: nuc118_bloom_stationlevel_20260504.bamlist.txt
+  nonbloom: nuc118_nonbloom_stationlevel_20260504.bamlist.txt
+  clusterA: clusterA_2016_2017_20260617.bamlist
+  clusterB: clusterB_2022_2024_20260617.bamlist
+
+pairs:
+  bloom_nonbloom:
+    a: bloom
+    b: nonbloom
+  clusterA_clusterB:
+    a: clusterA
+    b: clusterB
+
+fst_estimators:
+  - 0
+  - 1
+
+pca_group: all
+
+min_ind_fraction: 0.2
+
+min_ind_override:
+  all: 24
+
+angsd:
+  set_min_depth: 2
+  set_max_depth: 300
+  min_mapq: 30
+  min_q: 20
+  snp_pval: 1e-6
+  min_maf: 0.05
+
+modules:
+  angsd: angsd/0.940-GCC-12.3.0
+  pcangsd: PCAngsd/1.2-gfbf-2023a
+
+threads:
+  saf: 8
+  sfs: 8
+  pcangsd: 8
+
+resources:
+  saf:
+    mem_mb: 60000
+    runtime: 2880
+  sfs:
+    mem_mb: 60000
+    runtime: 1440
+  thetas:
+    mem_mb: 20000
+    runtime: 480
+  fst:
+    mem_mb: 40000
+    runtime: 720
+  pcangsd:
+    mem_mb: 40000
+    runtime: 480

@@ -1,0 +1,324 @@
+import os
+
+configfile: "config.yaml"
+
+BAMLIST_DIR = config["bamlist_dir"]
+OUTDIR = config["outdir"]
+REF = config["reference"]
+GROUPS = config["groups"]
+PAIRS = config["pairs"]
+FST_ESTIMATORS = config["fst_estimators"]
+PCA_GROUP = config["pca_group"]
+
+
+def bamlist_path(group):
+    return os.path.join(BAMLIST_DIR, GROUPS[group])
+
+
+def bams_in_group(wildcards):
+    with open(bamlist_path(wildcards.group)) as handle:
+        return [line.strip() for line in handle if line.strip()]
+
+
+def group_size(group):
+    with open(bamlist_path(group)) as handle:
+        return sum(1 for line in handle if line.strip())
+
+
+def min_ind(wildcards):
+    override = config.get("min_ind_override", {})
+    if wildcards.group in override:
+        return override[wildcards.group]
+    return max(1, int(group_size(wildcards.group) * config["min_ind_fraction"]))
+
+
+def region_flag(wildcards):
+    if config.get("regions"):
+        return "-rf {}".format(config["regions"])
+    return ""
+
+
+def pair_groups(pair):
+    return PAIRS[pair]["a"], PAIRS[pair]["b"]
+
+
+rule all:
+    input:
+        expand(
+            os.path.join(OUTDIR, "thetas", "{group}_theta.thetas.idx.pestPG"),
+            group=GROUPS,
+        ),
+        expand(
+            os.path.join(OUTDIR, "fst", "{pair}_whichFst{estimator}_stats.txt"),
+            pair=PAIRS,
+            estimator=FST_ESTIMATORS,
+        ),
+        os.path.join(OUTDIR, "pca", PCA_GROUP + ".cov"),
+
+
+rule angsd_saf:
+    input:
+        bamlist=lambda wildcards: bamlist_path(wildcards.group),
+        bams=bams_in_group,
+        ref=REF,
+    output:
+        saf=os.path.join(OUTDIR, "saf", "{group}.saf.gz"),
+        idx=os.path.join(OUTDIR, "saf", "{group}.saf.idx"),
+        pos=os.path.join(OUTDIR, "saf", "{group}.saf.pos.gz"),
+        mafs=os.path.join(OUTDIR, "saf", "{group}.mafs.gz"),
+        arg=os.path.join(OUTDIR, "saf", "{group}.arg"),
+    params:
+        prefix=os.path.join(OUTDIR, "saf", "{group}"),
+        min_ind=min_ind,
+        regions=region_flag,
+        min_depth=config["angsd"]["set_min_depth"],
+        max_depth=config["angsd"]["set_max_depth"],
+        min_mapq=config["angsd"]["min_mapq"],
+        min_q=config["angsd"]["min_q"],
+    threads: config["threads"]["saf"]
+    resources:
+        mem_mb=config["resources"]["saf"]["mem_mb"],
+        runtime=config["resources"]["saf"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "angsd_saf_{group}.log"),
+    shell:
+        """
+        angsd \
+            -bam {input.bamlist} \
+            -ref {input.ref} \
+            -anc {input.ref} \
+            -out {params.prefix} \
+            -GL 1 \
+            -doSaf 1 \
+            -doMajorMinor 1 \
+            -doMaf 1 \
+            -doCounts 1 \
+            -setMinDepth {params.min_depth} \
+            -setMaxDepth {params.max_depth} \
+            -minMapQ {params.min_mapq} \
+            -minQ {params.min_q} \
+            -baq 1 \
+            -remove_bads 1 \
+            -only_proper_pairs 1 \
+            -minInd {params.min_ind} \
+            -nThreads {threads} \
+            {params.regions} \
+            > {log} 2>&1
+        """
+
+
+rule realsfs_1d:
+    input:
+        idx=os.path.join(OUTDIR, "saf", "{group}.saf.idx"),
+    output:
+        sfs=os.path.join(OUTDIR, "sfs", "{group}.sfs"),
+    threads: config["threads"]["sfs"]
+    resources:
+        mem_mb=config["resources"]["sfs"]["mem_mb"],
+        runtime=config["resources"]["sfs"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "realsfs_1d_{group}.log"),
+    shell:
+        """
+        realSFS {input.idx} -fold 1 -P {threads} 2> {log} > {output.sfs}
+        """
+
+
+rule saf2theta:
+    input:
+        idx=os.path.join(OUTDIR, "saf", "{group}.saf.idx"),
+        sfs=os.path.join(OUTDIR, "sfs", "{group}.sfs"),
+    output:
+        thetas=os.path.join(OUTDIR, "thetas", "{group}_theta.thetas.gz"),
+        idx=os.path.join(OUTDIR, "thetas", "{group}_theta.thetas.idx"),
+    params:
+        prefix=os.path.join(OUTDIR, "thetas", "{group}_theta"),
+    resources:
+        mem_mb=config["resources"]["thetas"]["mem_mb"],
+        runtime=config["resources"]["thetas"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "saf2theta_{group}.log"),
+    shell:
+        """
+        realSFS saf2theta {input.idx} \
+            -sfs {input.sfs} \
+            -fold 1 \
+            -outname {params.prefix} \
+            > {log} 2>&1
+        """
+
+
+rule thetastat:
+    input:
+        idx=os.path.join(OUTDIR, "thetas", "{group}_theta.thetas.idx"),
+    output:
+        pestpg=os.path.join(OUTDIR, "thetas", "{group}_theta.thetas.idx.pestPG"),
+    resources:
+        mem_mb=config["resources"]["thetas"]["mem_mb"],
+        runtime=config["resources"]["thetas"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "thetastat_{group}.log"),
+    shell:
+        """
+        thetaStat do_stat {input.idx} > {log} 2>&1
+        test -s {output.pestpg}
+        """
+
+
+rule realsfs_2d:
+    input:
+        a=lambda wildcards: os.path.join(
+            OUTDIR, "saf", pair_groups(wildcards.pair)[0] + ".saf.idx"
+        ),
+        b=lambda wildcards: os.path.join(
+            OUTDIR, "saf", pair_groups(wildcards.pair)[1] + ".saf.idx"
+        ),
+    output:
+        sfs=os.path.join(OUTDIR, "fst", "{pair}_2d.sfs"),
+    threads: config["threads"]["sfs"]
+    resources:
+        mem_mb=config["resources"]["sfs"]["mem_mb"],
+        runtime=config["resources"]["sfs"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "realsfs_2d_{pair}.log"),
+    shell:
+        """
+        realSFS {input.a} {input.b} -fold 1 -P {threads} 2> {log} > {output.sfs}
+        """
+
+
+rule fst_index:
+    input:
+        a=lambda wildcards: os.path.join(
+            OUTDIR, "saf", pair_groups(wildcards.pair)[0] + ".saf.idx"
+        ),
+        b=lambda wildcards: os.path.join(
+            OUTDIR, "saf", pair_groups(wildcards.pair)[1] + ".saf.idx"
+        ),
+        sfs=os.path.join(OUTDIR, "fst", "{pair}_2d.sfs"),
+    output:
+        fst=os.path.join(OUTDIR, "fst", "{pair}_whichFst{estimator}.fst.gz"),
+        idx=os.path.join(OUTDIR, "fst", "{pair}_whichFst{estimator}.fst.idx"),
+    params:
+        prefix=os.path.join(OUTDIR, "fst", "{pair}_whichFst{estimator}"),
+    wildcard_constraints:
+        estimator=r"[01]",
+    resources:
+        mem_mb=config["resources"]["fst"]["mem_mb"],
+        runtime=config["resources"]["fst"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "fst_index_{pair}_whichFst{estimator}.log"),
+    shell:
+        """
+        realSFS fst index {input.a} {input.b} \
+            -sfs {input.sfs} \
+            -fold 1 \
+            -whichFst {wildcards.estimator} \
+            -fstout {params.prefix} \
+            > {log} 2>&1
+        """
+
+
+rule fst_stats:
+    input:
+        idx=os.path.join(OUTDIR, "fst", "{pair}_whichFst{estimator}.fst.idx"),
+    output:
+        stats=os.path.join(OUTDIR, "fst", "{pair}_whichFst{estimator}_stats.txt"),
+    wildcard_constraints:
+        estimator=r"[01]",
+    resources:
+        mem_mb=config["resources"]["fst"]["mem_mb"],
+        runtime=config["resources"]["fst"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    shell:
+        """
+        realSFS fst stats {input.idx} > {output.stats} 2>&1
+        """
+
+
+rule angsd_beagle:
+    input:
+        bamlist=lambda wildcards: bamlist_path(wildcards.group),
+        bams=bams_in_group,
+        ref=REF,
+    output:
+        beagle=os.path.join(OUTDIR, "beagle", "{group}.beagle.gz"),
+        mafs=os.path.join(OUTDIR, "beagle", "{group}.mafs.gz"),
+        arg=os.path.join(OUTDIR, "beagle", "{group}.arg"),
+    params:
+        prefix=os.path.join(OUTDIR, "beagle", "{group}"),
+        min_ind=min_ind,
+        regions=region_flag,
+        min_depth=config["angsd"]["set_min_depth"],
+        max_depth=config["angsd"]["set_max_depth"],
+        min_mapq=config["angsd"]["min_mapq"],
+        min_q=config["angsd"]["min_q"],
+        snp_pval=config["angsd"]["snp_pval"],
+        min_maf=config["angsd"]["min_maf"],
+    threads: config["threads"]["saf"]
+    resources:
+        mem_mb=config["resources"]["saf"]["mem_mb"],
+        runtime=config["resources"]["saf"]["runtime"],
+    envmodules:
+        config["modules"]["angsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "angsd_beagle_{group}.log"),
+    shell:
+        """
+        angsd \
+            -bam {input.bamlist} \
+            -ref {input.ref} \
+            -out {params.prefix} \
+            -GL 1 \
+            -doGlf 2 \
+            -doMajorMinor 1 \
+            -doMaf 1 \
+            -doCounts 1 \
+            -SNP_pval {params.snp_pval} \
+            -minMaf {params.min_maf} \
+            -setMinDepth {params.min_depth} \
+            -setMaxDepth {params.max_depth} \
+            -minMapQ {params.min_mapq} \
+            -minQ {params.min_q} \
+            -baq 1 \
+            -remove_bads 1 \
+            -only_proper_pairs 1 \
+            -minInd {params.min_ind} \
+            -nThreads {threads} \
+            {params.regions} \
+            > {log} 2>&1
+        """
+
+
+rule pcangsd:
+    input:
+        beagle=os.path.join(OUTDIR, "beagle", "{group}.beagle.gz"),
+    output:
+        cov=os.path.join(OUTDIR, "pca", "{group}.cov"),
+    params:
+        prefix=os.path.join(OUTDIR, "pca", "{group}"),
+    threads: config["threads"]["pcangsd"]
+    resources:
+        mem_mb=config["resources"]["pcangsd"]["mem_mb"],
+        runtime=config["resources"]["pcangsd"]["runtime"],
+    envmodules:
+        config["modules"]["pcangsd"],
+    log:
+        os.path.join(OUTDIR, "logs", "pcangsd_{group}.log"),
+    shell:
+        """
+        pcangsd -b {input.beagle} -o {params.prefix} -t {threads} > {log} 2>&1
+        """
